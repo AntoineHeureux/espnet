@@ -1,1 +1,0 @@
-../../../swbd/asr1/local/swbd1_prepare_dict.sh

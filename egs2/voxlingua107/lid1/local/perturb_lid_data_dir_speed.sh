@@ -1,1 +1,0 @@
-../../../TEMPLATE/lid1/local/perturb_lid_data_dir_speed.sh

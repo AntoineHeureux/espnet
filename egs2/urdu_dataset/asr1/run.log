@@ -1,0 +1,316 @@
+2026-08-26T17:02:42 (asr.sh:285:main) ./asr.sh --lang ur --asr_exp exp/asr_cs_urdu_bpe2000 --ngpu 1 --nj 8 --nbpe 2000 --asr_config conf/train_conformer_hybrid.yaml --inference_config conf/decode_asr.yaml --lm_config conf/train_lm.yaml --train_set train --valid_set valid --test_sets test --bpe_train_text data/train/text --lm_train_text data/train/text
+2026-08-26T17:02:49 (asr.sh:566:main) Skipped stages:  9 14 15 
+2026-08-26T17:02:49 (asr.sh:573:main) Stage 1: Data preparation for data/train, data/valid, etc.
+2026-08-26T17:02:49 (data.sh:20:main) local/data.sh 
+2026-08-26T17:02:56 (data.sh:36:main) stage 1: Data preparation (using existing local data directory)
+2026-08-26T17:02:57 (data.sh:59:main) Successfully finished. [elapsed=8s]
+2026-08-26T17:02:57 (asr.sh:581:main) Stage 2: Speed perturbation: data/train -> data/train_sp
+text
+utt2lang
+text
+scripts/utils/perturb_data_dir_speed.sh: generated speed-perturbed version of data in data/train, in data/train_sp0.9
+fix_data_dir.sh: kept all 35876 utterances.
+fix_data_dir.sh: old files are kept in data/train_sp0.9/.backup
+utils/validate_data_dir.sh: Successfully validated data-directory data/train_sp0.9
+text
+utt2lang
+text
+scripts/utils/perturb_data_dir_speed.sh: generated speed-perturbed version of data in data/train, in data/train_sp1.1
+fix_data_dir.sh: kept all 35876 utterances.
+fix_data_dir.sh: old files are kept in data/train_sp1.1/.backup
+utils/validate_data_dir.sh: Successfully validated data-directory data/train_sp1.1
+utils/combine_data.sh --extra_files text  data/train_sp data/train_sp0.9 data/train data/train_sp1.1
+utils/combine_data.sh: combined utt2uniq
+utils/combine_data.sh: combined segments
+utils/combine_data.sh: combined utt2spk
+utils/combine_data.sh [info]: not combining utt2lang as it does not exist
+utils/combine_data.sh [info]: **not combining utt2dur as it does not exist everywhere**
+utils/combine_data.sh [info]: not combining utt2num_frames as it does not exist
+utils/combine_data.sh [info]: not combining reco2dur as it does not exist
+utils/combine_data.sh [info]: not combining feats.scp as it does not exist
+utils/combine_data.sh: combined text
+utils/combine_data.sh [info]: not combining cmvn.scp as it does not exist
+utils/combine_data.sh [info]: not combining vad.scp as it does not exist
+utils/combine_data.sh [info]: not combining reco2file_and_channel as it does not exist
+utils/combine_data.sh: combined wav.scp
+utils/combine_data.sh [info]: not combining spk2gender as it does not exist
+utils/combine_data.sh: combined text
+fix_data_dir.sh: kept all 107628 utterances.
+fix_data_dir.sh: old files are kept in data/train_sp/.backup
+2026-08-26T17:03:27 (asr.sh:616:main) Stage 3: Format wav.scp: data/ -> dump/raw
+utils/copy_data_dir.sh: copied data from data/train_sp to dump/raw/org/train_sp
+utils/validate_data_dir.sh: Successfully validated data-directory dump/raw/org/train_sp
+2026-08-26T17:03:32 (format_wav_scp.sh:46:main) scripts/audio/format_wav_scp.sh --nj 8 --cmd run.pl --audio-format flac --fs 16k --segments data/train_sp/segments --multi-columns-input false --multi-columns-output false data/train_sp/wav.scp dump/raw/org/train_sp
+2026-08-26T17:03:41 (format_wav_scp.sh:97:main) [info]: using data/train_sp/segments
+2026-08-26T18:30:34 (format_wav_scp.sh:153:main) Successfully finished. [elapsed=5222s]
+utils/copy_data_dir.sh: copied data from data/valid to dump/raw/org/valid
+utils/validate_data_dir.sh: Successfully validated data-directory dump/raw/org/valid
+2026-08-26T18:30:37 (format_wav_scp.sh:46:main) scripts/audio/format_wav_scp.sh --nj 8 --cmd run.pl --audio-format flac --fs 16k --segments data/valid/segments --multi-columns-input false --multi-columns-output false data/valid/wav.scp dump/raw/org/valid
+2026-08-26T18:30:49 (format_wav_scp.sh:97:main) [info]: using data/valid/segments
+2026-08-26T18:38:44 (format_wav_scp.sh:153:main) Successfully finished. [elapsed=487s]
+utils/copy_data_dir.sh: copied data from data/test to dump/raw/test
+utils/validate_data_dir.sh: Successfully validated data-directory dump/raw/test
+2026-08-26T18:38:46 (format_wav_scp.sh:46:main) scripts/audio/format_wav_scp.sh --nj 8 --cmd run.pl --audio-format flac --fs 16k --segments data/test/segments --multi-columns-input false --multi-columns-output false data/test/wav.scp dump/raw/test
+2026-08-26T18:38:58 (format_wav_scp.sh:97:main) [info]: using data/test/segments
+2026-08-26T18:40:52 (format_wav_scp.sh:153:main) Successfully finished. [elapsed=126s]
+2026-08-26T18:40:52 (asr.sh:801:main) Stage 4: Remove long/short data: dump/raw/org -> dump/raw
+utils/copy_data_dir.sh: copied data from dump/raw/org/train_sp to dump/raw/train_sp
+utils/validate_data_dir.sh: Successfully validated data-directory dump/raw/train_sp
+fix_data_dir.sh: kept 105671 utterances out of 107628
+fix_data_dir.sh: old files are kept in dump/raw/train_sp/.backup
+utils/copy_data_dir.sh: copied data from dump/raw/org/valid to dump/raw/valid
+utils/validate_data_dir.sh: Successfully validated data-directory dump/raw/valid
+fix_data_dir.sh: kept 12921 utterances out of 12958
+fix_data_dir.sh: old files are kept in dump/raw/valid/.backup
+2026-08-26T18:41:10 (asr.sh:879:main) Stage 5: Generate token_list from data/train/text using BPE
+sentencepiece_trainer.cc(178) LOG(INFO) Running command: --input=data/ur_token_list/bpe_bpe2000/train.txt --vocab_size=2000 --model_type=bpe --model_prefix=data/ur_token_list/bpe_bpe2000/bpe --character_coverage=1.0 --input_sentence_size=100000000
+sentencepiece_trainer.cc(78) LOG(INFO) Starts training with : 
+trainer_spec {
+  input: data/ur_token_list/bpe_bpe2000/train.txt
+  input_format: 
+  model_prefix: data/ur_token_list/bpe_bpe2000/bpe
+  model_type: BPE
+  vocab_size: 2000
+  self_test_sample_size: 0
+  character_coverage: 1
+  input_sentence_size: 100000000
+  shuffle_input_sentence: 1
+  seed_sentencepiece_size: 1000000
+  shrinking_factor: 0.75
+  max_sentence_length: 4192
+  num_threads: 16
+  num_sub_iterations: 2
+  max_sentencepiece_length: 16
+  split_by_unicode_script: 1
+  split_by_number: 1
+  split_by_whitespace: 1
+  split_digits: 0
+  pretokenization_delimiter: 
+  treat_whitespace_as_suffix: 0
+  allow_whitespace_only_pieces: 0
+  required_chars: 
+  byte_fallback: 0
+  vocabulary_output_piece_score: 1
+  train_extremely_large_corpus: 0
+  seed_sentencepieces_file: 
+  hard_vocab_limit: 1
+  use_all_vocab: 0
+  unk_id: 0
+  bos_id: 1
+  eos_id: 2
+  pad_id: -1
+  unk_piece: <unk>
+  bos_piece: <s>
+  eos_piece: </s>
+  pad_piece: <pad>
+  unk_surface:  ⁇ 
+  enable_differential_privacy: 0
+  differential_privacy_noise_level: 0
+  differential_privacy_clipping_threshold: 0
+}
+normalizer_spec {
+  name: nmt_nfkc
+  add_dummy_prefix: 1
+  remove_extra_whitespaces: 1
+  escape_whitespaces: 1
+  normalization_rule_tsv: 
+}
+denormalizer_spec {}
+trainer_interface.cc(355) LOG(INFO) SentenceIterator is not specified. Using MultiFileSentenceIterator.
+trainer_interface.cc(186) LOG(INFO) Loading corpus: data/ur_token_list/bpe_bpe2000/train.txt
+trainer_interface.cc(411) LOG(INFO) Loaded all 35876 sentences
+trainer_interface.cc(427) LOG(INFO) Adding meta_piece: <unk>
+trainer_interface.cc(427) LOG(INFO) Adding meta_piece: <s>
+trainer_interface.cc(427) LOG(INFO) Adding meta_piece: </s>
+trainer_interface.cc(432) LOG(INFO) Normalizing sentences...
+trainer_interface.cc(541) LOG(INFO) all chars count=3259942
+trainer_interface.cc(562) LOG(INFO) Alphabet size=200
+trainer_interface.cc(563) LOG(INFO) Final character coverage=1
+trainer_interface.cc(594) LOG(INFO) Done! preprocessed 35876 sentences.
+trainer_interface.cc(600) LOG(INFO) Tokenizing input sentences with whitespace: 35876
+trainer_interface.cc(611) LOG(INFO) Done! 28199
+bpe_model_trainer.cc(159) LOG(INFO) Updating active symbols. max_freq=94103 min_freq=65
+bpe_model_trainer.cc(268) LOG(INFO) Added: freq=16681 size=20 all=3117 active=1568 piece=▁گ
+bpe_model_trainer.cc(268) LOG(INFO) Added: freq=11611 size=40 all=3536 active=1987 piece=▁چ
+bpe_model_trainer.cc(268) LOG(INFO) Added: freq=7298 size=60 all=4225 active=2676 piece=▁ہم
+bpe_model_trainer.cc(268) LOG(INFO) Added: freq=5357 size=80 all=4842 active=3293 piece=▁b
+bpe_model_trainer.cc(268) LOG(INFO) Added: freq=4245 size=100 all=5554 active=4005 piece=▁l
+bpe_model_trainer.cc(159) LOG(INFO) Updating active symbols. max_freq=4245 min_freq=262
+bpe_model_trainer.cc(268) LOG(INFO) Added: freq=3424 size=120 all=6292 active=1721 piece=▁گا
+bpe_model_trainer.cc(268) LOG(INFO) Added: freq=2814 size=140 all=6665 active=2094 piece=it
+bpe_model_trainer.cc(268) LOG(INFO) Added: freq=2393 size=160 all=7457 active=2886 piece=ly
+bpe_model_trainer.cc(268) LOG(INFO) Added: freq=2127 size=180 all=8061 active=3490 piece=کل
+bpe_model_trainer.cc(268) LOG(INFO) Added: freq=1931 size=200 all=8626 active=4055 piece=▁ساتھ
+bpe_model_trainer.cc(159) LOG(INFO) Updating active symbols. max_freq=1931 min_freq=234
+bpe_model_trainer.cc(268) LOG(INFO) Added: freq=1728 size=220 all=9011 active=1385 piece=ay
+bpe_model_trainer.cc(268) LOG(INFO) Added: freq=1485 size=240 all=9521 active=1895 piece=▁لے
+bpe_model_trainer.cc(268) LOG(INFO) Added: freq=1347 size=260 all=9922 active=2296 piece=ri
+bpe_model_trainer.cc(268) LOG(INFO) Added: freq=1238 size=280 all=10393 active=2767 piece=gh
+bpe_model_trainer.cc(268) LOG(INFO) Added: freq=1166 size=300 all=10700 active=3074 piece=▁گئی
+bpe_model_trainer.cc(159) LOG(INFO) Updating active symbols. max_freq=1161 min_freq=209
+bpe_model_trainer.cc(268) LOG(INFO) Added: freq=1040 size=320 all=11235 active=1534 piece=▁مط
+bpe_model_trainer.cc(268) LOG(INFO) Added: freq=983 size=340 all=11629 active=1928 piece=▁کیوں
+bpe_model_trainer.cc(268) LOG(INFO) Added: freq=914 size=360 all=11921 active=2220 piece=▁دیں
+bpe_model_trainer.cc(268) LOG(INFO) Added: freq=855 size=380 all=12244 active=2543 piece=▁کبھی
+bpe_model_trainer.cc(268) LOG(INFO) Added: freq=797 size=400 all=12596 active=2895 piece=▁kn
+bpe_model_trainer.cc(159) LOG(INFO) Updating active symbols. max_freq=795 min_freq=182
+bpe_model_trainer.cc(268) LOG(INFO) Added: freq=738 size=420 all=12923 active=1323 piece=▁اتنا
+bpe_model_trainer.cc(268) LOG(INFO) Added: freq=699 size=440 all=13248 active=1648 piece=▁but
+bpe_model_trainer.cc(268) LOG(INFO) Added: freq=661 size=460 all=13729 active=2129 piece=شن
+bpe_model_trainer.cc(268) LOG(INFO) Added: freq=625 size=480 all=14132 active=2532 piece=ink
+bpe_model_trainer.cc(268) LOG(INFO) Added: freq=598 size=500 all=14411 active=2811 piece=▁بند
+bpe_model_trainer.cc(159) LOG(INFO) Updating active symbols. max_freq=597 min_freq=160
+bpe_model_trainer.cc(268) LOG(INFO) Added: freq=572 size=520 all=14892 active=1466 piece=▁شرو
+bpe_model_trainer.cc(268) LOG(INFO) Added: freq=549 size=540 all=15226 active=1800 piece=▁کرتی
+bpe_model_trainer.cc(268) LOG(INFO) Added: freq=529 size=560 all=15621 active=2195 piece=ment
+bpe_model_trainer.cc(268) LOG(INFO) Added: freq=510 size=580 all=15932 active=2506 piece=pp
+bpe_model_trainer.cc(268) LOG(INFO) Added: freq=476 size=600 all=16345 active=2919 piece=▁ویسے
+bpe_model_trainer.cc(159) LOG(INFO) Updating active symbols. max_freq=474 min_freq=142
+bpe_model_trainer.cc(268) LOG(INFO) Added: freq=456 size=620 all=16659 active=1315 piece=ure
+bpe_model_trainer.cc(268) LOG(INFO) Added: freq=440 size=640 all=16911 active=1567 piece=▁پور
+bpe_model_trainer.cc(268) LOG(INFO) Added: freq=421 size=660 all=17189 active=1845 piece=▁سوال
+bpe_model_trainer.cc(268) LOG(INFO) Added: freq=401 size=680 all=17500 active=2156 piece=▁can
+bpe_model_trainer.cc(268) LOG(INFO) Added: freq=388 size=700 all=17720 active=2376 piece=سلام
+bpe_model_trainer.cc(159) LOG(INFO) Updating active symbols. max_freq=387 min_freq=127
+bpe_model_trainer.cc(268) LOG(INFO) Added: freq=375 size=720 all=17908 active=1187 piece=▁بڑے
+bpe_model_trainer.cc(268) LOG(INFO) Added: freq=355 size=740 all=18153 active=1432 piece=▁اک
+bpe_model_trainer.cc(268) LOG(INFO) Added: freq=344 size=760 all=18437 active=1716 piece=▁اٹھا
+bpe_model_trainer.cc(268) LOG(INFO) Added: freq=331 size=780 all=18823 active=2102 piece=▁le
+bpe_model_trainer.cc(268) LOG(INFO) Added: freq=318 size=800 all=19014 active=2293 piece=▁آن
+bpe_model_trainer.cc(159) LOG(INFO) Updating active symbols. max_freq=318 min_freq=116
+bpe_model_trainer.cc(268) LOG(INFO) Added: freq=306 size=820 all=19173 active=1151 piece=▁یو
+bpe_model_trainer.cc(268) LOG(INFO) Added: freq=296 size=840 all=19403 active=1381 piece=▁تع
+bpe_model_trainer.cc(268) LOG(INFO) Added: freq=285 size=860 all=19700 active=1678 piece=▁will
+bpe_model_trainer.cc(268) LOG(INFO) Added: freq=275 size=880 all=19893 active=1871 piece=▁لگے
+bpe_model_trainer.cc(268) LOG(INFO) Added: freq=265 size=900 all=20185 active=2163 piece=یت
+bpe_model_trainer.cc(159) LOG(INFO) Updating active symbols. max_freq=265 min_freq=106
+bpe_model_trainer.cc(268) LOG(INFO) Added: freq=256 size=920 all=20487 active=1284 piece=▁بھر
+bpe_model_trainer.cc(268) LOG(INFO) Added: freq=246 size=940 all=20614 active=1411 piece=▁tr
+bpe_model_trainer.cc(268) LOG(INFO) Added: freq=238 size=960 all=20828 active=1625 piece=▁دیر
+bpe_model_trainer.cc(268) LOG(INFO) Added: freq=229 size=980 all=21007 active=1804 piece=te
+bpe_model_trainer.cc(268) LOG(INFO) Added: freq=222 size=1000 all=21229 active=2026 piece=▁then
+bpe_model_trainer.cc(159) LOG(INFO) Updating active symbols. max_freq=221 min_freq=93
+bpe_model_trainer.cc(268) LOG(INFO) Added: freq=218 size=1020 all=21476 active=1308 piece=▁br
+bpe_model_trainer.cc(268) LOG(INFO) Added: freq=212 size=1040 all=21638 active=1470 piece=▁per
+bpe_model_trainer.cc(268) LOG(INFO) Added: freq=206 size=1060 all=21779 active=1611 piece=▁دیتا
+bpe_model_trainer.cc(268) LOG(INFO) Added: freq=200 size=1080 all=21871 active=1703 piece=▁بچہ
+bpe_model_trainer.cc(268) LOG(INFO) Added: freq=195 size=1100 all=22092 active=1924 piece=orry
+bpe_model_trainer.cc(159) LOG(INFO) Updating active symbols. max_freq=195 min_freq=84
+bpe_model_trainer.cc(268) LOG(INFO) Added: freq=189 size=1120 all=22208 active=1220 piece=▁bas
+bpe_model_trainer.cc(268) LOG(INFO) Added: freq=183 size=1140 all=22329 active=1341 piece=یسٹ
+bpe_model_trainer.cc(268) LOG(INFO) Added: freq=179 size=1160 all=22513 active=1525 piece=▁بھاگ
+bpe_model_trainer.cc(268) LOG(INFO) Added: freq=174 size=1180 all=22679 active=1691 piece=ond
+bpe_model_trainer.cc(268) LOG(INFO) Added: freq=171 size=1200 all=22859 active=1871 piece=▁کہتا
+bpe_model_trainer.cc(159) LOG(INFO) Updating active symbols. max_freq=170 min_freq=76
+bpe_model_trainer.cc(268) LOG(INFO) Added: freq=168 size=1220 all=23080 active=1364 piece=▁عورت
+bpe_model_trainer.cc(268) LOG(INFO) Added: freq=164 size=1240 all=23277 active=1561 piece=▁چا
+bpe_model_trainer.cc(268) LOG(INFO) Added: freq=161 size=1260 all=23495 active=1779 piece=▁سیٹ
+bpe_model_trainer.cc(268) LOG(INFO) Added: freq=157 size=1280 all=23683 active=1967 piece=▁use
+bpe_model_trainer.cc(268) LOG(INFO) Added: freq=154 size=1300 all=23814 active=2098 piece=▁دھو
+bpe_model_trainer.cc(159) LOG(INFO) Updating active symbols. max_freq=154 min_freq=69
+bpe_model_trainer.cc(268) LOG(INFO) Added: freq=150 size=1320 all=24015 active=1376 piece=ket
+bpe_model_trainer.cc(268) LOG(INFO) Added: freq=148 size=1340 all=24156 active=1517 piece=▁فو
+bpe_model_trainer.cc(268) LOG(INFO) Added: freq=145 size=1360 all=24291 active=1652 piece=▁ویڈیو
+bpe_model_trainer.cc(268) LOG(INFO) Added: freq=143 size=1380 all=24420 active=1781 piece=▁رہتے
+bpe_model_trainer.cc(268) LOG(INFO) Added: freq=140 size=1400 all=24592 active=1953 piece=▁ma
+bpe_model_trainer.cc(159) LOG(INFO) Updating active symbols. max_freq=140 min_freq=64
+bpe_model_trainer.cc(268) LOG(INFO) Added: freq=138 size=1420 all=24689 active=1316 piece=▁کال
+bpe_model_trainer.cc(268) LOG(INFO) Added: freq=135 size=1440 all=24862 active=1489 piece=▁سکھا
+bpe_model_trainer.cc(268) LOG(INFO) Added: freq=132 size=1460 all=25023 active=1650 piece=▁مرد
+bpe_model_trainer.cc(268) LOG(INFO) Added: freq=130 size=1480 all=25148 active=1775 piece=▁چکی
+bpe_model_trainer.cc(268) LOG(INFO) Added: freq=127 size=1500 all=25265 active=1892 piece=▁lit
+bpe_model_trainer.cc(159) LOG(INFO) Updating active symbols. max_freq=127 min_freq=59
+bpe_model_trainer.cc(268) LOG(INFO) Added: freq=125 size=1520 all=25338 active=1334 piece=حہ
+bpe_model_trainer.cc(268) LOG(INFO) Added: freq=124 size=1540 all=25498 active=1494 piece=▁امریک
+bpe_model_trainer.cc(268) LOG(INFO) Added: freq=122 size=1560 all=25599 active=1595 piece=▁بنایا
+bpe_model_trainer.cc(268) LOG(INFO) Added: freq=120 size=1580 all=25686 active=1682 piece=▁important
+bpe_model_trainer.cc(268) LOG(INFO) Added: freq=118 size=1600 all=25780 active=1776 piece=▁سیکنڈ
+bpe_model_trainer.cc(159) LOG(INFO) Updating active symbols. max_freq=117 min_freq=55
+bpe_model_trainer.cc(268) LOG(INFO) Added: freq=115 size=1620 all=25948 active=1457 piece=▁same
+bpe_model_trainer.cc(268) LOG(INFO) Added: freq=114 size=1640 all=26093 active=1602 piece=▁تقریب
+bpe_model_trainer.cc(268) LOG(INFO) Added: freq=111 size=1660 all=26239 active=1748 piece=▁gl
+bpe_model_trainer.cc(268) LOG(INFO) Added: freq=110 size=1680 all=26339 active=1848 piece=▁پیاری
+bpe_model_trainer.cc(268) LOG(INFO) Added: freq=108 size=1700 all=26402 active=1911 piece=▁کہانی
+bpe_model_trainer.cc(159) LOG(INFO) Updating active symbols. max_freq=108 min_freq=51
+bpe_model_trainer.cc(268) LOG(INFO) Added: freq=106 size=1720 all=26537 active=1455 piece=ft
+bpe_model_trainer.cc(268) LOG(INFO) Added: freq=104 size=1740 all=26710 active=1628 piece=رک
+bpe_model_trainer.cc(268) LOG(INFO) Added: freq=103 size=1760 all=26860 active=1778 piece=دے
+bpe_model_trainer.cc(268) LOG(INFO) Added: freq=101 size=1780 all=26985 active=1903 piece=ful
+trainer_interface.cc(689) LOG(INFO) Saving model: data/ur_token_list/bpe_bpe2000/bpe.model
+trainer_interface.cc(701) LOG(INFO) Saving vocabs: data/ur_token_list/bpe_bpe2000/bpe.vocab
+2026-08-26T18:41:11 (asr.sh:1009:main) Stage 6: LM collect stats: train_set=dump/raw/lm_train.txt, dev_set=dump/raw/org/valid/text
+2026-08-26T18:41:12 (asr.sh:1041:main) Generate 'exp/lm_stats_ur_bpe2000/run.sh'. You can resume the process from stage 6 using this script
+2026-08-26T18:41:12 (asr.sh:1045:main) LM collect-stats started... log: 'exp/lm_stats_ur_bpe2000/logdir/stats.*.log'
+/workspace/espnet/tools/miniconda/envs/espnet/bin/python3 /workspace/espnet/espnet2/bin/aggregate_stats_dirs.py --input_dir exp/lm_stats_ur_bpe2000/logdir/stats.1 --input_dir exp/lm_stats_ur_bpe2000/logdir/stats.2 --input_dir exp/lm_stats_ur_bpe2000/logdir/stats.3 --input_dir exp/lm_stats_ur_bpe2000/logdir/stats.4 --input_dir exp/lm_stats_ur_bpe2000/logdir/stats.5 --input_dir exp/lm_stats_ur_bpe2000/logdir/stats.6 --input_dir exp/lm_stats_ur_bpe2000/logdir/stats.7 --input_dir exp/lm_stats_ur_bpe2000/logdir/stats.8 --output_dir exp/lm_stats_ur_bpe2000
+2026-08-26T18:43:27 (asr.sh:1086:main) Stage 7: LM Training: train_set=dump/raw/lm_train.txt, dev_set=dump/raw/org/valid/text
+2026-08-26T18:43:27 (asr.sh:1123:main) Generate 'exp/lm_train_lm_ur_bpe2000/run.sh'. You can resume the process from stage 7 using this script
+2026-08-26T18:43:27 (asr.sh:1126:main) LM training started... log: 'exp/lm_train_lm_ur_bpe2000/train.log'
+2026-08-26 18:43:29,593 (launch:94) INFO: /workspace/espnet/tools/miniconda/envs/espnet/bin/python3 /workspace/espnet/espnet2/bin/launch.py --cmd 'run.pl --name exp/lm_train_lm_ur_bpe2000/train.log' --log exp/lm_train_lm_ur_bpe2000/train.log --ngpu 1 --num_nodes 1 --init_file_prefix exp/lm_train_lm_ur_bpe2000/.dist_init_ --multiprocessing_distributed true -- python3 -m espnet2.bin.lm_train --ngpu 1 --use_preprocessor true --bpemodel data/ur_token_list/bpe_bpe2000/bpe.model --token_type bpe --token_list data/ur_token_list/bpe_bpe2000/tokens.txt --non_linguistic_symbols none --cleaner none --g2p none --valid_data_path_and_name_and_type dump/raw/org/valid/text,text,text --valid_shape_file exp/lm_stats_ur_bpe2000/valid/text_shape.bpe --fold_length 150 --resume true --output_dir exp/lm_train_lm_ur_bpe2000 --config conf/train_lm.yaml --train_data_path_and_name_and_type dump/raw/lm_train.txt,text,text --train_shape_file exp/lm_stats_ur_bpe2000/train/text_shape.bpe
+2026-08-26 18:43:30,261 (launch:348) INFO: log file: exp/lm_train_lm_ur_bpe2000/train.log
+2026-08-26T18:44:54 (asr.sh:1162:main) Stage 8: Calc perplexity: dump/raw/test/text
+2026-08-26T18:44:54 (asr.sh:1165:main) Perplexity calculation started... log: 'exp/lm_train_lm_ur_bpe2000/perplexity_test/lm_calc_perplexity.log'
+2026-08-26T18:46:33 (asr.sh:1175:main) PPL: dump/raw/test/text: 12342.481529628212
+2026-08-26T18:46:34 (asr.sh:1191:main) Stage 10: ASR collect stats: train_set=dump/raw/train_sp, valid_set=dump/raw/valid
+2026-08-26T18:46:34 (asr.sh:1242:main) Generate 'exp/asr_stats_raw_ur_bpe2000_sp/run.sh'. You can resume the process from stage 10 using this script
+2026-08-26T18:46:34 (asr.sh:1246:main) ASR collect-stats started... log: 'exp/asr_stats_raw_ur_bpe2000_sp/logdir/stats.*.log'
+/workspace/espnet/tools/miniconda/envs/espnet/bin/python3 /workspace/espnet/espnet2/bin/aggregate_stats_dirs.py --input_dir exp/asr_stats_raw_ur_bpe2000_sp/logdir/stats.1 --input_dir exp/asr_stats_raw_ur_bpe2000_sp/logdir/stats.2 --input_dir exp/asr_stats_raw_ur_bpe2000_sp/logdir/stats.3 --input_dir exp/asr_stats_raw_ur_bpe2000_sp/logdir/stats.4 --input_dir exp/asr_stats_raw_ur_bpe2000_sp/logdir/stats.5 --input_dir exp/asr_stats_raw_ur_bpe2000_sp/logdir/stats.6 --input_dir exp/asr_stats_raw_ur_bpe2000_sp/logdir/stats.7 --input_dir exp/asr_stats_raw_ur_bpe2000_sp/logdir/stats.8 --output_dir exp/asr_stats_raw_ur_bpe2000_sp
+2026-08-26T18:58:37 (asr.sh:1310:main) Stage 11: ASR Training: train_set=dump/raw/train_sp, valid_set=dump/raw/valid
+2026-08-26T18:58:37 (asr.sh:1409:main) Generate 'exp/asr_cs_urdu_bpe2000/run.sh'. You can resume the process from stage 11 using this script
+2026-08-26T18:58:38 (asr.sh:1413:main) ASR training started... log: 'exp/asr_cs_urdu_bpe2000/train.log'
+2026-08-26T18:58:38 (asr.sh:1451:main) Use ESPnet trainer
+2026-08-26 18:58:40,730 (launch:94) INFO: /workspace/espnet/tools/miniconda/envs/espnet/bin/python3 /workspace/espnet/espnet2/bin/launch.py --cmd 'run.pl --name exp/asr_cs_urdu_bpe2000/train.log' --log exp/asr_cs_urdu_bpe2000/train.log --ngpu 1 --num_nodes 1 --init_file_prefix exp/asr_cs_urdu_bpe2000/.dist_init_ --multiprocessing_distributed true -- python3 -m espnet2.bin.asr_train --use_preprocessor true --bpemodel data/ur_token_list/bpe_bpe2000/bpe.model --token_type bpe --token_list data/ur_token_list/bpe_bpe2000/tokens.txt --non_linguistic_symbols none --cleaner none --g2p none --valid_data_path_and_name_and_type dump/raw/valid/wav.scp,speech,sound --valid_shape_file exp/asr_stats_raw_ur_bpe2000_sp/valid/speech_shape --resume true --ignore_init_mismatch false --fold_length 80000 --output_dir exp/asr_cs_urdu_bpe2000 --config conf/train_conformer_hybrid.yaml --frontend_conf fs=16k --normalize=global_mvn --normalize_conf stats_file=exp/asr_stats_raw_ur_bpe2000_sp/train/feats_stats.npz --train_data_path_and_name_and_type dump/raw/train_sp/wav.scp,speech,sound --train_shape_file exp/asr_stats_raw_ur_bpe2000_sp/train/speech_shape --fold_length 150 --train_data_path_and_name_and_type dump/raw/train_sp/text,text,text --train_shape_file exp/asr_stats_raw_ur_bpe2000_sp/train/text_shape.bpe --valid_data_path_and_name_and_type dump/raw/valid/text,text,text --valid_shape_file exp/asr_stats_raw_ur_bpe2000_sp/valid/text_shape.bpe
+2026-08-26 18:58:41,332 (launch:348) INFO: log file: exp/asr_cs_urdu_bpe2000/train.log
+2026-08-26T19:00:58 (asr.sh:1513:main) Stage 12: Decoding: training_dir=exp/asr_cs_urdu_bpe2000
+2026-08-26T19:00:58 (asr.sh:1541:main) Generate 'exp/asr_cs_urdu_bpe2000/decode_asr_lm_lm_train_lm_ur_bpe2000_valid.loss.ave_asr_model_valid.acc.ave/run.sh'. You can resume the process from stage 12 using this script
+2026-08-26T19:00:58 (asr.sh:1606:main) Decoding started... log: 'exp/asr_cs_urdu_bpe2000/decode_asr_lm_lm_train_lm_ur_bpe2000_valid.loss.ave_asr_model_valid.acc.ave/test/logdir/asr_inference.*.log'
+2026-08-26T20:21:41 (asr.sh:1622:main) Calculating RTF & latency... log: 'exp/asr_cs_urdu_bpe2000/decode_asr_lm_lm_train_lm_ur_bpe2000_valid.loss.ave_asr_model_valid.acc.ave/test/logdir/calculate_rtf.log'
+2026-08-26T20:21:47 (asr.sh:1654:main) Stage 13: Scoring
+/workspace/espnet/tools/miniconda/envs/espnet/bin/python3 /workspace/espnet/espnet2/bin/tokenize_text.py -f 2- --input - --output - --cleaner none --token_type char --non_linguistic_symbols none --remove_non_linguistic_symbols true
+/workspace/espnet/tools/miniconda/envs/espnet/bin/python3 /workspace/espnet/espnet2/bin/tokenize_text.py -f 2- --input - --output - --token_type char --non_linguistic_symbols none --remove_non_linguistic_symbols true --cleaner none
+2026-08-26T20:25:23 (asr.sh:1744:main) Write cer result in exp/asr_cs_urdu_bpe2000/decode_asr_lm_lm_train_lm_ur_bpe2000_valid.loss.ave_asr_model_valid.acc.ave/test/score_cer/result.txt
+|  SPKR                                  |  # Snt     # Wrd   |  Corr       Sub       Del        Ins       Err     S.Err   |
+|  Sum/Avg                               |  4020      357076  |  28.4      38.5      33.1        6.0      77.6     100.0   |
+/workspace/espnet/tools/miniconda/envs/espnet/bin/python3 /workspace/espnet/espnet2/bin/tokenize_text.py -f 2- --input - --output - --cleaner none --token_type word --non_linguistic_symbols none --remove_non_linguistic_symbols true
+/workspace/espnet/tools/miniconda/envs/espnet/bin/python3 /workspace/espnet/espnet2/bin/tokenize_text.py -f 2- --input - --output - --token_type word --non_linguistic_symbols none --remove_non_linguistic_symbols true --cleaner none
+2026-08-26T20:27:49 (asr.sh:1744:main) Write wer result in exp/asr_cs_urdu_bpe2000/decode_asr_lm_lm_train_lm_ur_bpe2000_valid.loss.ave_asr_model_valid.acc.ave/test/score_wer/result.txt
+|  SPKR                                  |  # Snt     # Wrd   |  Corr       Sub       Del        Ins       Err     S.Err   |
+|  Sum/Avg                               |  4020      82505   |   3.6      71.7      24.7        3.7     100.1     100.0   |
+/workspace/espnet/tools/miniconda/envs/espnet/bin/python3 /workspace/espnet/espnet2/bin/tokenize_text.py -f 2- --input - --output - --cleaner none --token_type bpe --bpemodel data/ur_token_list/bpe_bpe2000/bpe.model
+/workspace/espnet/tools/miniconda/envs/espnet/bin/python3 /workspace/espnet/espnet2/bin/tokenize_text.py -f 2- --input - --output - --token_type bpe --bpemodel data/ur_token_list/bpe_bpe2000/bpe.model --cleaner none
+2026-08-26T20:30:22 (asr.sh:1744:main) Write ter result in exp/asr_cs_urdu_bpe2000/decode_asr_lm_lm_train_lm_ur_bpe2000_valid.loss.ave_asr_model_valid.acc.ave/test/score_ter/result.txt
+|  SPKR                                  |  # Snt     # Wrd   |  Corr       Sub       Del        Ins       Err     S.Err   |
+|  Sum/Avg                               |  4020      114279  |   3.5      78.2      18.3        4.0     100.5     100.0   |
+fatal: ambiguous argument 'HEAD': unknown revision or path not in the working tree.
+Use '--' to separate paths from revisions, like this:
+'git <command> [<revision>...] -- [<file>...]'
+fatal: your current branch 'master' does not have any commits yet
+<!-- Generated by scripts/utils/show_asr_result.sh -->
+# RESULTS
+## Environments
+- date: `Wed Aug 26 20:30:34 UTC 2026`
+- python version: `3.12.8 | Intel Corporation | (main, Mar 31 2025, 23:28:18) [GCC 14.2.0]`
+- espnet2 version: `espnet2 202604`
+- pytorch version: `pytorch 2.6.0+cu124`
+- Git hash: `HEAD`
+  - Commit date: ``
+
+## exp/asr_cs_urdu_bpe2000
+### WER
+
+|dataset|Snt|Wrd|Corr|Sub|Del|Ins|Err|S.Err|
+|---|---|---|---|---|---|---|---|---|
+|decode_asr_lm_lm_train_lm_ur_bpe2000_valid.loss.ave_asr_model_valid.acc.ave/test|4020|82505|3.6|71.7|24.7|3.7|100.1|100.0|
+
+### CER
+
+|dataset|Snt|Wrd|Corr|Sub|Del|Ins|Err|S.Err|
+|---|---|---|---|---|---|---|---|---|
+|decode_asr_lm_lm_train_lm_ur_bpe2000_valid.loss.ave_asr_model_valid.acc.ave/test|4020|357076|28.4|38.5|33.1|6.0|77.6|100.0|
+
+### TER
+
+|dataset|Snt|Wrd|Corr|Sub|Del|Ins|Err|S.Err|
+|---|---|---|---|---|---|---|---|---|
+|decode_asr_lm_lm_train_lm_ur_bpe2000_valid.loss.ave_asr_model_valid.acc.ave/test|4020|114279|3.5|78.2|18.3|4.0|100.5|100.0|
+
+2026-08-26T20:30:47 (asr.sh:1842:main) Successfully finished. [elapsed=12485s]

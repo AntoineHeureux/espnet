@@ -1,10 +1,16 @@
 #!/usr/bin/env bash
 
 # Set bash to 'debug' mode, it will exit on :
-# -e 'error', -u 'undefined variable', -o ... 'error in pipeline', -x 'print commands',
-set -e
-set -u
-set -o pipefail
+#-e 'error', -u 'undefined variable', -o ... 'error in pipeline', -x 'print commands',
+#set -e
+#set -u
+#set -o pipefail
+
+export OMP_NUM_THREADS=1
+export MKL_NUM_THREADS=1
+export NUMEXPR_NUM_THREADS=1
+
+exec > >(tee -a asr.log) 2>&1
 
 log() {
     local fname=${BASH_SOURCE[1]##*/}
@@ -24,8 +30,8 @@ min() {
 SECONDS=0
 
 # General configuration
-stage=1                 # Processes starts from the specified stage.
-stop_stage=10000        # Processes is stopped at the specified stage.
+stage=11                # Processes starts from the specified stage.
+stop_stage=13       # Processes is stopped at the specified stage.
 skip_stages=            # Spicify the stage to be skipped
 skip_data_prep=false    # Skip data preparation stages.
 skip_train=false        # Skip training stages.
@@ -36,8 +42,8 @@ eval_valid_set=false    # Run decoding for the validation set
 ngpu=1                  # The number of gpus ("0" uses cpu, otherwise use gpu).
 num_nodes=1             # The number of nodes.
 nj=32                   # The number of parallel jobs.
-inference_nj=32         # The number of parallel jobs in decoding.
-gpu_inference=false     # Whether to perform gpu decoding.
+inference_nj=1         # The number of parallel jobs in decoding.
+gpu_inference=true     # Whether to perform gpu decoding.
 dumpdir=dump            # Directory to dump features.
 expdir=exp              # Directory to save experiments.
 python=python3          # Specify python to execute espnet commands.
@@ -49,7 +55,7 @@ post_process_local_data_opts= # The options given to local/data.sh for additiona
 auxiliary_data_tags= # the names of training data for auxiliary tasks
 
 # Speed perturbation related
-speed_perturb_factors=  # perturbation factors, e.g. "0.9 1.0 1.1" (separated by space).
+speed_perturb_factors="0.9 1.0 1.1"  # perturbation factors, e.g. "0.9 1.0 1.1" (separated by space).
 
 # Feature extraction related
 feats_type=raw       # Feature type (raw, raw_copy, fbank_pitch, or extracted).
@@ -57,13 +63,17 @@ audio_format=flac    # Audio format: wav, flac, wav.ark, flac.ark  (only in feat
 multi_columns_input_wav_scp=false  # Enable multi columns mode for input wav.scp for format_wav_scp.py
 multi_columns_output_wav_scp=false # Enable multi columns mode for output wav.scp for format_wav_scp.py
 fs=16k               # Sampling rate.
-min_wav_duration=0.1 # Minimum duration in second.
+min_wav_duration=2 # Minimum duration in second.
 max_wav_duration=20  # Maximum duration in second.
 
 # Tokenization related
-token_type=bpe      # Tokenization type (char or bpe).
-nbpe=30             # The number of BPE vocabulary.
-bpemode=unigram     # Mode of BPE (unigram or bpe).
+token_type=bpe_split      # Tokenization type (char or bpe).
+bpe_train_text_en=  # Text file path of English-only BPE training subset.
+bpe_train_text_ur=  # Text file path of Urdu-only BPE training subset.
+nbpe=4000             # The number of BPE vocabulary.
+nbpe_ur=3000             # The number of BPE vocabulary for Urdu.
+nbpe_en=1000            # The number of BPE vocabulary for English.
+bpemode=bpe     # Mode of BPE (unigram or bpe).
 oov="<unk>"         # Out of vocabulary symbol.
 blank="<blank>"     # CTC blank symbol
 sos_eos="<sos/eos>" # sos and eos symbole
@@ -78,7 +88,7 @@ ngram_exp=
 ngram_num=3
 
 # Language model related
-use_lm=true       # Use language model for ASR decoding.
+use_lm=false       # Use language model for ASR decoding.
 lm_tag=           # Suffix to the result dir for language model training.
 lm_exp=           # Specify the directory path for LM experiment.
                   # If this option is specified, lm_tag is ignored.
@@ -147,9 +157,9 @@ inference_asr_model=valid.acc.ave.pth # ASR model path for decoding.
 download_model= # Download a model from Model Zoo and use it for decoding.
 
 # [Task dependent] Set the datadir name created by local/data.sh
-train_set=       # Name of training set.
-valid_set=       # Name of validation set used for monitoring/tuning network training.
-test_sets=       # Names of test sets. Multiple items (e.g., both dev and eval sets) can be specified.
+train_set="train"       # Name of training set.
+valid_set="valid"       # Name of validation set used for monitoring/tuning network training.
+test_sets="test"       # Names of test sets. Multiple items (e.g., both dev and eval sets) can be specified.
 bpe_train_text=  # Text file path of bpe training set.
 lm_train_text=   # Text file path of language model training set.
 lm_dev_text=     # Text file path of language model development set.
@@ -389,7 +399,11 @@ if [ "${lang}" != noinfo ]; then
 else
     token_listdir=data/token_list
 fi
-bpedir="${token_listdir}/bpe_${bpemode}${nbpe}"
+if [ "${token_type}" = bpe_split ]; then
+    bpedir="${token_listdir}/bpe_${bpemode}_ur${nbpe_ur}_en${nbpe_en}"
+else
+    bpedir="${token_listdir}/bpe_${bpemode}${nbpe}"
+fi
 bpeprefix="${bpedir}"/bpe
 bpemodel="${bpeprefix}".model
 bpetoken_list="${bpedir}"/tokens.txt
@@ -400,6 +414,8 @@ hugging_face_token_list="${token_listdir}/hugging_face_"${hugging_face_model_nam
 wordtoken_list="${token_listdir}"/word/tokens.txt
 
 if [ "${token_type}" = bpe ]; then
+    token_list="${bpetoken_list}"
+elif [ "${token_type}" = bpe_split ]; then
     token_list="${bpetoken_list}"
 elif [ "${token_type}" = char ]; then
     token_list="${chartoken_list}"
@@ -430,6 +446,21 @@ else
     lm_token_type="${token_type}"
 fi
 
+# ---------------------------------------------------------------
+# "bpe_split" est un type interne à ce script (contrôle la logique
+# de fusion EN/UR au stage 5). Le modèle produit est un BPE
+# SentencePiece standard : on le déclare comme "bpe" aux binaires
+# espnet2 (lm_train, asr_train, ...), qui ne connaissent pas "bpe_split".
+# ---------------------------------------------------------------
+if [ "${token_type}" = bpe_split ]; then
+    train_token_type=bpe
+else
+    train_token_type="${token_type}"
+fi
+if [ "${lm_token_type}" = bpe_split ]; then
+    lm_token_type=bpe
+fi
+
 
 # Set tag for naming of model directory
 if [ -z "${asr_tag}" ]; then
@@ -444,7 +475,10 @@ if [ -z "${asr_tag}" ]; then
         asr_tag+="_${token_type}"
     fi
     if [ "${token_type}" = bpe ]; then
-        asr_tag+="${nbpe}"
+        asr_tag+="${nbpe_ur}-${nbpe_en}"
+    fi
+    if [ "${token_type}" = bpe_split ]; then
+        asr_tag+="${nbpe_ur}-${nbpe_en}"
     fi
     if [ "${token_type}" = hugging_face ]; then
         asr_tag+="_"${hugging_face_model_name_or_path/\//-}
@@ -485,7 +519,10 @@ if [ -z "${asr_stats_dir}" ]; then
         asr_stats_dir="${expdir}/asr_stats_${feats_type}_${token_type}"
     fi
     if [ "${token_type}" = bpe ]; then
-        asr_stats_dir+="${nbpe}"
+        asr_stats_dir+="${nbpe_ur}-${nbpe_en}"
+    fi
+    if [ "${token_type}" = bpe_split ]; then
+        asr_stats_dir+="${nbpe_ur}-${nbpe_en}"
     fi
     if [ "${token_type}" = hugging_face ]; then
         asr_stats_dir+="_"${hugging_face_model_name_or_path/\//-}
@@ -501,7 +538,7 @@ if [ -z "${lm_stats_dir}" ]; then
         lm_stats_dir="${expdir}/lm_stats_${lm_token_type}"
     fi
     if [ "${lm_token_type}" = bpe ]; then
-        lm_stats_dir+="${nbpe}"
+        lm_stats_dir+="${nbpe_ur}-${nbpe_en}"
     fi
 fi
 # The directory used for training commands
@@ -918,6 +955,129 @@ if [ ${stage} -le 5 ] && [ ${stop_stage} -ge 5 ] && ! [[ " ${skip_stages} " =~ [
         echo "${sos_eos}"
         } > "${token_list}"
 
+    elif [ "${token_type}" = bpe_split ]; then
+        log "Stage 5: Generate token_list from ${bpe_train_text} using BPE (EN/UR merge for CS)"
+
+        mkdir -p "${bpedir}"
+
+        # ---------------------------------------------------------------
+        # 0. Chemins des corpus monolingues (par défaut, surchargeables)
+        # ---------------------------------------------------------------
+        [ -z "${bpe_train_text_en}" ] && bpe_train_text_en="data/${train_set%_sp}/train_bpe_en"
+        [ -z "${bpe_train_text_ur}" ] && bpe_train_text_ur="data/${train_set%_sp}/train_bpe_ur"
+
+        # Vérification explicite d'existence -> message clair plutôt qu'un crash spm_train opaque
+        [ -f "${bpe_train_text_en}" ] || { log "Error: ${bpe_train_text_en} not found"; exit 2; }
+        [ -f "${bpe_train_text_ur}" ] || { log "Error: ${bpe_train_text_ur} not found"; exit 2; }
+
+        # shellcheck disable=SC2002
+        cat ${bpe_train_text}     > "${bpedir}"/train.txt
+        cat ${bpe_train_text_en}  > "${bpedir}"/train_en.txt
+        cat ${bpe_train_text_ur}  > "${bpedir}"/train_ur.txt
+
+        # ---------------------------------------------------------------
+        # 2. Symboles spéciaux communs (nlsyms + SOT)
+        # ---------------------------------------------------------------
+        if [ -n "${bpe_nlsyms}" ]; then
+            if test -f "${bpe_nlsyms}"; then
+                bpe_nlsyms_list=$(awk '{print $1}' ${bpe_nlsyms} | paste -s -d, -)
+                _opts_spm="--user_defined_symbols=${bpe_nlsyms_list}"
+            else
+                _opts_spm="--user_defined_symbols=${bpe_nlsyms}"
+            fi
+        else
+            _opts_spm=""
+        fi
+
+        if ${sot_asr}; then
+            _opts_spm+=" --user_defined_symbols=<sc>"
+        fi
+
+        # ---------------------------------------------------------------
+        # 3. Entraînement du BPE monolingue anglais
+        # ---------------------------------------------------------------
+        log "Stage 5a: Training English BPE (vocab_size=${nbpe_en})"
+        spm_train \
+            --input="${bpedir}"/train_en.txt \
+            --vocab_size="${nbpe_en}" \
+            --model_type="${bpemode}" \
+            --model_prefix="${bpeprefix}_en" \
+            --character_coverage=${bpe_char_cover} \
+            --input_sentence_size="${bpe_input_sentence_size}" \
+            ${_opts_spm}
+
+        # ---------------------------------------------------------------
+        # 4. Entraînement du BPE monolingue ourdou
+        # ---------------------------------------------------------------
+        log "Stage 5b: Training Urdu BPE (vocab_size=${nbpe_ur})"
+        spm_train \
+            --input="${bpedir}"/train_ur.txt \
+            --vocab_size="${nbpe_ur}" \
+            --model_type="${bpemode}" \
+            --model_prefix="${bpeprefix}_ur" \
+            --character_coverage=${bpe_char_cover} \
+            --input_sentence_size="${bpe_input_sentence_size}" \
+            ${_opts_spm}
+
+        # ---------------------------------------------------------------
+        # 5. Fusion des deux vocabulaires (union, sans doublons)
+        #    On retire les 3 premières lignes (<unk>, <s>, </s>) de chaque
+        #    vocab, propres à SentencePiece.
+        # ---------------------------------------------------------------
+        log "Stage 5c: Merging EN/UR BPE vocabularies"
+
+        awk 'NR>3 {print $1}' "${bpeprefix}_en.vocab" > "${bpedir}"/pieces_en.txt
+        awk 'NR>3 {print $1}' "${bpeprefix}_ur.vocab" > "${bpedir}"/pieces_ur.txt
+
+        cat "${bpedir}"/pieces_en.txt "${bpedir}"/pieces_ur.txt \
+            | sort -u > "${bpedir}"/pieces_merged.txt
+
+        n_merged=$(wc -l < "${bpedir}"/pieces_merged.txt)
+        log "Merged vocabulary size (EN ∪ UR): ${n_merged}"
+
+        # Liste au format attendu par --user_defined_symbols (séparée par des virgules)
+        merged_syms=$(paste -s -d, "${bpedir}"/pieces_merged.txt)
+
+        # ---------------------------------------------------------------
+        # 6. Entraînement du modèle final combiné sur le corpus bilingue,
+        #    en forçant l'union des sous-mots comme symboles atomiques.
+        #    Cela garantit que la segmentation reste identique à celle
+        #    des deux modèles monolingues, y compris sur du texte
+        #    code-switché.
+        # ---------------------------------------------------------------
+        log "Stage 5d: Training final merged BPE model for code-switching"
+
+        # On garde une petite marge sur vocab_size au cas où spm_train
+        # ait besoin d'espace pour ses tokens internes.
+        final_vocab_size=$(( n_merged + 30 ))
+
+        # Construire la liste combinée AVANT le dernier spm_train
+        _extra_syms=""
+        [ -n "${bpe_nlsyms_list}" ] && _extra_syms+="${bpe_nlsyms_list},"
+        ${sot_asr} && _extra_syms+="<sc>,"
+        final_user_syms="${_extra_syms}${merged_syms}"
+
+        spm_train \
+            --input="${bpedir}"/train.txt \
+            --vocab_size="${final_vocab_size}" \
+            --model_type="${bpemode}" \
+            --model_prefix="${bpeprefix}" \
+            --character_coverage=${bpe_char_cover} \
+            --input_sentence_size="${bpe_input_sentence_size}" \
+            --hard_vocab_limit=false \
+            --user_defined_symbols=${final_user_syms}
+
+        # ---------------------------------------------------------------
+        # 7. Construction du token_list final (identique à l'original)
+        # ---------------------------------------------------------------
+        {
+        echo "${blank}"
+        echo "${oov}"
+        # Remove <unk>, <s>, </s> from the vocabulary
+        <"${bpeprefix}".vocab awk '{ if( NR != 1 && NR != 2 && NR != 3 ){ print $1; } }'
+        echo "${sos_eos}"
+        } > "${token_list}"
+    
     elif [ "${token_type}" = char ] || [ "${token_type}" = word ]; then
         log "Stage 5: Generate character level token_list from ${lm_train_text}"
 
@@ -1268,7 +1428,7 @@ if [ ${stage} -le 10 ] && [ ${stop_stage} -ge 10 ] && ! [[ " ${skip_stages} " =~
             --collect_stats true \
             --use_preprocessor true \
             --bpemodel "${bpemodel}" \
-            --token_type "${token_type}" \
+            --token_type "${train_token_type}" \
             --token_list "${token_list}" \
             --non_linguistic_symbols "${nlsyms_txt}" \
             --cleaner "${cleaner}" \
@@ -1433,7 +1593,7 @@ if [ ${stage} -le 11 ] && [ ${stop_stage} -ge 11 ] && ! [[ " ${skip_stages} " =~
                 --lightning_conf "{devices: ${ngpu}, num_nodes: ${num_nodes}, default_root_dir: ${asr_exp}}" \
                 --use_preprocessor true \
                 --bpemodel "${bpemodel}" \
-                --token_type "${token_type}" \
+                --token_type "${train_token_type}" \
                 --token_list "${token_list}" \
                 --non_linguistic_symbols "${nlsyms_txt}" \
                 --cleaner "${cleaner}" \
@@ -1460,7 +1620,7 @@ if [ ${stage} -le 11 ] && [ ${stop_stage} -ge 11 ] && ! [[ " ${skip_stages} " =~
             ${python} -m espnet2.bin.${asr_task}_train \
                 --use_preprocessor true \
                 --bpemodel "${bpemodel}" \
-                --token_type "${token_type}" \
+                --token_type "${train_token_type}" \
                 --token_list "${token_list}" \
                 --non_linguistic_symbols "${nlsyms_txt}" \
                 --cleaner "${cleaner}" \
@@ -1769,7 +1929,7 @@ if [ ${stage} -le 14 ] && [ ${stop_stage} -ge 14 ] && ! [[ " ${skip_stages} " =~
     if [ "${feats_normalize}" = global_mvn ]; then
         _opts+="--option ${asr_stats_dir}/train/feats_stats.npz "
     fi
-    if [ "${token_type}" = bpe ]; then
+    if [ "${token_type}" = bpe ] || [ "${token_type}" = bpe_split ]; then
         _opts+="--option ${bpemodel} "
     fi
     if [ "${nlsyms_txt}" != none ]; then

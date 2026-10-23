@@ -1,1 +1,0 @@
-../../../TEMPLATE/lid1/local/prepare_ood_test.py

@@ -1,1 +1,0 @@
-../../asr1/local/concat_short_utt.py

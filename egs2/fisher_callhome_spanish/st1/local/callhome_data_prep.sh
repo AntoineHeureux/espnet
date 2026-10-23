@@ -1,1 +1,0 @@
-../../asr1/local/callhome_data_prep.sh

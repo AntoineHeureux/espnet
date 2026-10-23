@@ -1,1 +1,0 @@
-../../TEMPLATE/hubert1/hubert.sh

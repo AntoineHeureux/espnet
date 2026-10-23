@@ -1,1 +1,0 @@
-../../../TEMPLATE/lid1/local/score.py

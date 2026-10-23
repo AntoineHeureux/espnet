@@ -1,0 +1,85 @@
+# ==========================================
+# Modèle Conformer (Encoder) + Transformer (Decoder)
+# Configuration complète pour entraînement ASR Ourdou/Anglais
+# ==========================================
+
+# 1. Front-end (Extraction de caractéristiques)
+frontend: default
+frontend_conf:
+    fs: 16k
+    n_mels: 80
+
+# 1bis. SpecAugment (essentiel en entraînement réel, absent de votre config de test)
+specaug: specaug
+specaug_conf:
+    apply_time_warp: true
+    time_warp_window: 5
+    time_warp_mode: bicubic
+    apply_freq_mask: true
+    freq_mask_width_range:
+    - 0
+    - 30
+    num_freq_mask: 2
+    apply_time_mask: true
+    time_mask_width_ratio_range:
+    - 0.
+    - 0.05
+    num_time_mask: 5
+
+# 2. Normalisation (indispensable pour la stabilité, absente en test)
+normalize: global_mvn
+
+# 3. Encodeur (Conformer) — dimensions standard
+encoder: conformer
+encoder_conf:
+    output_size: 512        # taille standard (au lieu de 256)
+    attention_heads: 8      # au lieu de 4
+    linear_units: 2048      # au lieu de 1024
+    num_blocks: 12          # au lieu de 2 (profondeur réelle)
+    dropout_rate: 0.1
+    positional_dropout_rate: 0.1
+    attention_dropout_rate: 0.1
+    input_layer: conv2d
+    normalize_before: true
+    macaron_style: true
+    use_cnn_module: true
+    cnn_module_kernel: 15
+    pos_enc_layer_type: rel_pos       # meilleure gestion des positions longues
+    selfattention_layer_type: rel_selfattn
+
+# 4. Décodeur (Transformer) — dimensions standard
+decoder: transformer
+decoder_conf:
+    attention_heads: 8
+    linear_units: 2048
+    num_blocks: 6            # au lieu de 2
+    dropout_rate: 0.1
+    positional_dropout_rate: 0.1
+    self_attention_dropout_rate: 0.1
+    src_attention_dropout_rate: 0.1
+
+# 5. Modèle Global (Hybride CTC/Attention)
+model_conf:
+    ctc_weight: 0.3
+    lsm_weight: 0.1
+    length_normalized_loss: false
+
+# ==========================================
+# Paramètres d'entraînement (nécessaires pour un vrai run,
+# absents de votre config "test")
+# ==========================================
+
+seed: 2022
+num_workers: 8
+batch_type: numel
+batch_bins: 7500000     # à ajuster selon la mémoire GPU disponible
+accum_grad: 1
+grad_clip: 5
+max_epoch: 5
+patience: 10
+best_model_criterion:
+-   - valid
+    - acc
+    - max
+keep_nbest_models: 5
+use_amp: true    # mixed precision (accélère et réduit la VRAM sur GPU compatibles)

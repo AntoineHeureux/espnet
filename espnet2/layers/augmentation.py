@@ -6,6 +6,11 @@ import librosa
 import numpy as np
 import torch
 import torchaudio
+from torchaudio.io import AudioEffector, CodecConfig
+
+import functools
+import random
+import warnings
 
 # Avaiable sampling rates for bandwidth limitation
 SAMPLE_RATES = (8000, 16000, 22050, 24000, 32000, 44100, 48000)
@@ -560,6 +565,136 @@ def bandwidth_limitation(waveform, sample_rate: int, res_type="random"):
     ret = librosa.resample(ret, orig_sr=fs_new, target_sr=fs, **opts)
     return torch.from_numpy(ret[:length]).to(device=waveform.device)
 
+## ---- custom radio data augmentation ----
+
+_MP3_BITRATES = (24, 32, 40, 48, 56, 64, 80, 96)  # débits valides MPEG-2 L3 (16 kHz)
+
+# État propre à chaque process (chaque worker du dataloader a le sien)
+_OK = set()        # chaînes ayant déjà réussi au moins une fois
+_FAILS = {}        # nombre d'échecs par chaîne
+_DISABLED = set()  # chaînes retirées (échecs répétés sans aucun succès)
+
+
+@functools.lru_cache(maxsize=8)
+def _resampler(orig_sr: int, new_sr: int):
+    return torchaudio.transforms.Resample(orig_sr, new_sr)
+
+
+@functools.lru_cache(maxsize=32)
+def _phone_mask(n_fft: int, sr: int):
+    """Passe-bande téléphonique 300-3400 Hz (flancs en cosinus), calculé une
+    fois par taille de FFT. Gain 0.5 aux fréquences de coupure."""
+    f = torch.fft.rfftfreq(n_fft, d=1.0 / sr)
+
+    def ramp(lo, hi):  # 0 -> 1 entre lo et hi
+        t = ((f - lo) / (hi - lo)).clamp(0.0, 1.0)
+        return 0.5 - 0.5 * torch.cos(math.pi * t)
+
+    return ramp(200.0, 400.0) * (1.0 - ramp(3200.0, 3600.0))
+
+
+def _ffmpeg_codec(wav, sr, afilter, fmt, encoder, bit_rate):
+    eff = AudioEffector(
+        effect=afilter,
+        format=fmt,
+        encoder=encoder,
+        codec_config=CodecConfig(bit_rate=bit_rate * 1000),
+    )
+    return eff.apply(wav.unsqueeze(1), sr)[:, 0]  # (time, 1) -> (time,)
+
+
+def _chain_mp3(wav, sr):  # webradio : bande réduite + MP3 bas débit
+    lp = min(random.randint(3500, 7900), int(0.49 * sr))
+    br = random.choice(_MP3_BITRATES)
+    return _ffmpeg_codec(
+        wav, sr, f"highpass=f=100,lowpass=f={lp}", "mp3", "libmp3lame", br
+    )
+
+
+def _chain_aac(wav, sr):  # DAB+ / streaming : compresseur + limiteur + AAC
+    thr = random.randint(-26, -16)
+    ratio = random.randint(3, 8)
+    br = random.randint(32, 80)
+    afilter = f"acompressor=threshold={thr}dB:ratio={ratio},alimiter=limit=0.9"
+    return _ffmpeg_codec(wav, sr, afilter, "matroska", "aac", br)
+
+
+def _chain_opus(wav, sr):  # voix bas débit
+    hp = random.randint(80, 200)
+    br = random.randint(12, 32)
+    return _ffmpeg_codec(wav, sr, f"highpass=f={hp}", "ogg", "libopus", br)
+
+
+def _chain_phone(wav, sr):  # téléphone / AM : 300-3400 Hz, 8 kHz, G.711 µ-law
+    n = wav.numel()
+    n_fft = 1 << (n - 1).bit_length()  # puissance de 2 >= n (zéro-padding)
+    spec = torch.fft.rfft(wav, n=n_fft) * _phone_mask(n_fft, sr)
+    wav = torch.fft.irfft(spec, n=n_fft)[:n]
+    wav = _resampler(sr, 8000)(wav)
+    q = torchaudio.functional.mu_law_encoding(wav.clamp(-1.0, 1.0), 256)
+    wav = torchaudio.functional.mu_law_decoding(q, 256)
+    return _resampler(8000, sr)(wav)
+
+
+_RADIO_CHAINS = {
+    "mp3": _chain_mp3,
+    "phone": _chain_phone,
+    "aac": _chain_aac,
+    "opus": _chain_opus,
+}
+
+
+def radio_degradation(waveform, sample_rate: int, chains=None):
+    """Dégradation radio : filtre puis codec, chaîne tirée de façon équiprobable.
+
+    La probabilité d'appliquer la dégradation à un extrait (X %) est gérée en
+    amont par `data_aug_prob` dans le YAML. Si la chaîne tirée échoue, une
+    autre chaîne est essayée ; sans aucune chaîne disponible, l'audio est
+    renvoyé inchangé.
+
+    Args:
+        waveform (torch.Tensor): signal mono (time,), float dans [-1, 1]
+        sample_rate (int): fréquence d'échantillonnage (prévu pour 16 kHz)
+        chains (list[str] or None): sous-ensemble de {"mp3","phone","aac","opus"}
+    Returns:
+        torch.Tensor: signal dégradé, même longueur et même dtype que l'entrée
+    """
+    names = [c for c in (chains or _RADIO_CHAINS) if c not in _DISABLED]
+    n, dtype = waveform.numel(), waveform.dtype
+    if not names or n == 0:
+        return waveform
+    random.shuffle(names)  # le 1er est équiprobable, les suivants servent de repli
+    x = waveform.to(torch.float32)
+    for name in names:
+        try:
+            y = _RADIO_CHAINS[name](x, sample_rate)
+        except Exception as e:  # ne pas faire planter l'entraînement
+            _FAILS[name] = _FAILS.get(name, 0) + 1
+            if _FAILS[name] == 1:
+                warnings.warn(f"radio_degradation: chaîne '{name}' en échec : {e}")
+            if name not in _OK and _FAILS[name] >= 3:
+                _DISABLED.add(name)
+                warnings.warn(f"radio_degradation: chaîne '{name}' désactivée")
+            continue
+        _OK.add(name)
+        # les codecs décalent / rallongent légèrement : recaler la longueur
+        y = y[:n] if y.numel() >= n else torch.nn.functional.pad(y, (0, n - y.numel()))
+        return y.clamp(-1.0, 1.0).to(dtype)
+    return waveform
+
+
+def check_radio_chains(sr: int = 16000, seconds: int = 3):
+    """Teste chaque chaîne directement (sans le filet de sécurité)."""
+    x = torch.randn(sr * seconds).mul_(0.1).clamp_(-1.0, 1.0)
+    for name, fn in _RADIO_CHAINS.items():
+        try:
+            y = fn(x, sr)
+            m = min(len(x), len(y))
+            print(f"{name:5s} OK | sortie {len(y)} (entrée {len(x)}) | "
+                  f"écart moyen {(y[:m] - x[:m]).abs().mean():.4f}")
+        except Exception as e:
+            print(f"{name:5s} ERREUR : {str(e)[:200]}")
+
 
 effects_dict = {
     "lowpass": lowpass_filtering,
@@ -578,4 +713,5 @@ effects_dict = {
     "polarity_inverse": polarity_inverse,
     "reverse": reverse,
     "corrupt_phase": corrupt_phase,
+    "radio_degradation": radio_degradation,
 }

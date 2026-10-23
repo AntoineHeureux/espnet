@@ -1,1 +1,0 @@
-../../asr1/local/fsp_make_spk2gender.py

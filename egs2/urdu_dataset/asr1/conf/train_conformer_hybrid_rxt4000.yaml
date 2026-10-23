@@ -1,0 +1,99 @@
+# ==============================================================================
+# Extraction de caractéristiques (Frontend)
+# ==============================================================================
+frontend: default
+frontend_conf:
+    fs: 16000                 # Fréquence d'échantillonnage (ex: 16 kHz)
+    n_mels: 80                # Nombre de filtres Mel (F = 80 dimensions)
+    n_fft: 512                # Taille de la FFT (par défaut 512 ou 400)
+    win_length: null          # Taille de la fenêtre (par défaut égale à n_fft)
+    hop_length: 160           # Décalage de fenêtre (ex: 160 échantillons = 10 ms à 16kHz)
+
+# ==============================================================================
+# Configuration de Data augmentation
+# ==============================================================================
+specaug: specaug
+specaug_conf:
+    apply_time_warp: true
+    time_warp_window: 5
+    time_warp_mode: bicubic
+    apply_freq_mask: true
+    freq_mask_width_range:
+    - 0
+    - 30
+    num_freq_mask: 2
+    apply_time_mask: true
+    time_mask_width_range:
+    - 0
+    - 40
+    num_time_mask: 2
+
+preprocessor: default
+preprocessor_conf:
+  fs: 16000
+  data_aug_effects:
+    - [1.0, "radio_degradation", {}]       # ou {chains: ["mp3", "phone"]}
+  data_aug_num: [1, 1]
+  data_aug_prob: 0.3                        # X % des extraits
+
+# ==============================================================================
+# Architecture du modèle (Hybride CTC/Attention)
+# ==============================================================================
+# Encodeur : Conformer
+encoder: conformer
+encoder_conf:
+    output_size: 256            # Dimension de projection D = 256
+    attention_heads: 4          # Nombre de têtes d'attention
+    linear_units: 2048          # Dimension du réseau feed-forward interne
+    num_blocks: 12              # Douze couches d'encodeur
+    macaron_style: true         # Utilisation de la structure macaron
+    use_cnn_module: true
+    cnn_module_kernel: 15       # Taille de kernel CNN de 15
+    activation_type: swish      # Fonction d'activation Swish
+    
+# Décodeur : Transformer
+decoder: transformer
+decoder_conf:
+    attention_heads: 4          # Nombre de têtes d'attention
+    linear_units: 2048          # Déduit des logs d'erreur de poids du décodeur
+    num_blocks: 6               # Six couches de décodeur
+
+# Configuration globale du modèle
+model_conf:
+    ctc_weight: 0.3             # Paramètre alpha = 0.3
+    lsm_weight: 0.1             # Facteur de label smoothing de 0.1
+
+# ==============================================================================
+# Optimisation et Entraînement
+# ==============================================================================
+optim: adam                     # Optimiseur Adam
+optim_conf:
+    lr: 0.001                   # Taux d'apprentissage maximal
+
+# Note : ESPnet utilise généralement WarmupLR avec des schedulers combinés 
+# pour reproduire l'effet "warmup suivi d'un cosine annealing decay"
+scheduler: warmuplr 
+scheduler_conf:
+    warmup_steps: 25000         # Le LR monte de 0 à 0.001 sur 25,000 steps
+
+# Paramètres d'entraînement
+max_epoch: 50                   # 70 epochs (ASRU) ou 50 (SEAME) selon le jeu de données
+
+# ==========================================
+# Paramètres d'entraînement 
+# ==========================================
+
+seed: 2022
+num_workers: 12
+batch_type: numel
+batch_bins: 30000000     # 30M pour RTX 4000
+accum_grad: 1
+grad_clip: 5
+max_epoch: 50
+patience: 10
+best_model_criterion:
+-   - valid
+    - acc
+    - max
+keep_nbest_models: 5
+use_amp: true    # mixed precision (accélère et réduit la VRAM sur GPU compatibles)

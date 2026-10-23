@@ -40,6 +40,19 @@ pyproject.toml.tmp
 build/
 logs/
 core
+*.tar
+*.bz2
+*.tar.bz2
+*.pth
+*.pt
+*.onnx
+*.safetensors
+*.tar.gz
+*.zip
+*.bin
+*.log
+*.e2e
+*.best
 
 out/config.yaml
 hub/
@@ -128,3 +141,4 @@ tools/condarc
 tools/lightning_constraints.txt
 tools/versa
 tools/ParallelWaveGAN
+tools/installers/kenlm
